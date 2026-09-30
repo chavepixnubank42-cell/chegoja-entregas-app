@@ -25,8 +25,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Configurar o Android SDK
-        uses: android-actions/setup-android@v3
+      # O runner do GitHub já vem com o Android SDK pré-instalado e as
+      # licenças já aceitas, então não precisamos de um passo separado
+      # para baixar/configurar o SDK (isso evita a trava que tínhamos
+      # antes com a action android-actions/setup-android).
 
       - name: Instalar dependências do projeto
         run: npm install
@@ -39,6 +41,9 @@ jobs:
 
       - name: Compilar o APK (modo debug, para testes)
         run: cd android && ./gradlew assembleDebug --stacktrace
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
       - name: Disponibilizar o APK para download
         uses: actions/upload-artifact@v4
