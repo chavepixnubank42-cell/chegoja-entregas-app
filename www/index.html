@@ -1614,6 +1614,7 @@
       state.profile = previousProfile;
       showToast(result.error);
     }
+    if(window.__chegojaSyncNativeTracking) window.__chegojaSyncNativeTracking();
     await refreshOrders();
     render();
     const labels = {online:'🟢 Você está on-line — recebendo corridas', pausado:'🟡 Você está pausado — não vai receber novas corridas', offline:'⚪ Você está off-line'};
@@ -3181,8 +3182,65 @@
   // offered to whoever's actually closest to the pickup address instead of
   // just whoever has done the fewest rides. A single fresh fix every ~25s
   // is plenty for that — no need for a continuous high-accuracy watch.
+  //
+  // Quando o app roda dentro do Capacitor (app Android nativo instalado,
+  // não o navegador), usamos o plugin @capgo/background-geolocation em vez
+  // do navigator.geolocation do navegador. A diferença importante: esse
+  // plugin nativo continua funcionando mesmo com o app minimizado ou a
+  // tela do celular bloqueada, porque roda como um "foreground service" do
+  // Android — o navigator.geolocation comum é pausado pelo sistema assim
+  // que o app sai de primeiro plano, que era o motivo do motoboy "sumir"
+  // do mapa quando minimizava o app.
+  function isNativeApp(){
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  }
+
+  let nativeBgTracking = false;
+  let lastNativeLocationSentAt = 0;
+
+  async function startNativeBackgroundTracking(){
+    if(!isNativeApp() || nativeBgTracking) return;
+    const plugin = window.Capacitor.Plugins && window.Capacitor.Plugins.BackgroundGeolocation;
+    if(!plugin) return; // plugin não instalado/sincronizado ainda — sem problema, cai no modo antigo abaixo
+    try{
+      await plugin.start(
+        {
+          backgroundMessage: 'O ChegouJá está rastreando sua localização para receber corridas.',
+          backgroundTitle: 'ChegouJá — você está online',
+          requestPermissions: true,
+          stale: false,
+          distanceFilter: 30 // só manda atualização se andar pelo menos 30m, para poupar bateria/dados
+        },
+        (location, error) => {
+          if(error || !location) return;
+          const now = Date.now();
+          if(now - lastNativeLocationSentAt < 15000) return; // no máximo 1 envio a cada 15s, mesmo em movimento
+          lastNativeLocationSentAt = now;
+          apiPatch('/api/motoboys/'+state.myId, {
+            lat: location.latitude,
+            lng: location.longitude
+          }).catch(()=>{});
+        }
+      );
+      nativeBgTracking = true;
+    }catch(e){
+      console.error('Não foi possível iniciar o rastreamento nativo em segundo plano', e);
+    }
+  }
+
+  async function stopNativeBackgroundTracking(){
+    if(!isNativeApp() || !nativeBgTracking) return;
+    const plugin = window.Capacitor.Plugins && window.Capacitor.Plugins.BackgroundGeolocation;
+    try{ if(plugin) await plugin.stop(); }catch(e){}
+    nativeBgTracking = false;
+  }
+
   function pingMotoboyLocationIfOnline(){
     if(state.role !== 'motoboy' || motoboyStatus() !== 'online') return;
+    // No app nativo, o rastreamento em segundo plano (acima) já cuida dos
+    // envios — evita competir com um segundo pedido de localização, menos
+    // preciso, ao mesmo tempo.
+    if(isNativeApp() && nativeBgTracking) return;
     if(!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       pos => {
@@ -3197,6 +3255,13 @@
   }
   setInterval(pingMotoboyLocationIfOnline, 25000);
   pingMotoboyLocationIfOnline(); // also fire once right away after load/login
+
+  // Liga/desliga o rastreamento nativo em segundo plano junto com o status
+  // online do motoboy (ver setMotoboyStatus, mais acima neste arquivo).
+  window.__chegojaSyncNativeTracking = function(){
+    if(state.role === 'motoboy' && motoboyStatus() === 'online') startNativeBackgroundTracking();
+    else stopNativeBackgroundTracking();
+  };
 })();
 </script>
 </body>
