@@ -23,7 +23,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       # O runner do GitHub já vem com o Android SDK pré-instalado e as
       # licenças já aceitas, então não precisamos de um passo separado
