@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "665887114312",
+    "project_id": "chegouja-30d81",
+    "storage_bucket": "chegouja-30d81.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:665887114312:android:f8f414cf43b448f3dbc47d",
+        "android_client_info": {
+          "package_name": "br.com.chegoja.entregas"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFiWqHRb2DfOjTWre_zk4A7LfdF2aUckw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
