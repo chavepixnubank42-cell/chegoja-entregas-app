@@ -24,6 +24,24 @@
 
         </activity>
 
+        <!-- Tela cheia que toca como uma ligação quando chega corrida nova
+             (ver RideOfferMessagingService) -->
+        <activity
+            android:name=".RideOfferActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:theme="@style/AppTheme.NoActionBarLaunch" />
+
+        <!-- Recebe as notificações do Firebase, mesmo com o app fechado -->
+        <service
+            android:name=".RideOfferMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -52,5 +70,10 @@
     <!-- Necessária para mostrar a notificação persistente do serviço de
          localização em segundo plano (obrigatória a partir do Android 13) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Necessárias para a notificação "toca como ligação" de corrida nova -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
 </manifest>
