@@ -67,10 +67,13 @@ class RideOfferMessagingService : FirebaseMessagingService() {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(RIDE_OFFER_NOTIFICATION_ID, notification)
 
-        // Também tenta abrir a tela cheia diretamente — alguns Android
-        // atrasam o fullScreenIntent da notificação em certas condições,
-        // isso garante o efeito mesmo assim.
-        try { startActivity(fullScreenIntent) } catch (e: Exception) { /* ok, a notificação já foi mostrada acima */ }
+        // Importante: NÃO chamamos startActivity() diretamente aqui. A
+        // partir do Android 10, o sistema bloqueia apps de abrir uma tela
+        // sozinhos estando em segundo plano — o único jeito permitido é
+        // através do setFullScreenIntent() da notificação acima (que exige
+        // a permissão USE_FULL_SCREEN_INTENT, já declarada no Manifest).
+        // Uma segunda tentativa manual aqui só teria o efeito de ser
+        // bloqueada pelo sistema e possivelmente atrapalhar a primeira.
     }
 
     private fun showSimpleNotification(remoteMessage: RemoteMessage) {
