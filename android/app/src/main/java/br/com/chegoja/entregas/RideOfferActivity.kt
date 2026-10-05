@@ -66,8 +66,14 @@ class RideOfferActivity : AppCompatActivity() {
         try { mediaPlayer?.stop(); mediaPlayer?.release() } catch (e: Exception) {}
         mediaPlayer = null
         try { vibrator?.cancel() } catch (e: Exception) {}
-        titleView?.text = "Essa corrida já foi para outro motoboy"
-        bodyView?.text = "Fique de olho na próxima oferta."
+        titleView?.text = "O tempo para aceitar essa corrida acabou"
+        bodyView?.text = "Abra o app para ver se ela ainda está disponível."
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(RideOfferMessagingService.RIDE_OFFER_NOTIFICATION_ID)
+        // Deixa a mensagem visível por alguns segundos antes de fechar
+        // sozinha, em vez de ficar presa na tela esperando a pessoa tocar
+        // em algo.
+        autoTimeoutHandler.postDelayed({ if(!isFinishing) finish() }, 4000)
     }
 
     private fun buildLayout(title: String, body: String): LinearLayout {
