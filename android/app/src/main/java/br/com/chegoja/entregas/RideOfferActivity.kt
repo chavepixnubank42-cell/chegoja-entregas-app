@@ -27,6 +27,15 @@ class RideOfferActivity : AppCompatActivity() {
 
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
+    private var titleView: TextView? = null
+    private var bodyView: TextView? = null
+    private val autoTimeoutHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val autoTimeoutRunnable = Runnable { onOfferExpired() }
+
+    // Mesmo prazo que o servidor usa para oferecer a corrida a este
+    // motoboy antes de passar para o próximo da fila (ver OFFER_TIMEOUT_MS
+    // no server.js) — depois disso não faz mais sentido continuar tocando.
+    private val OFFER_TIMEOUT_MS = 30_000L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +58,16 @@ class RideOfferActivity : AppCompatActivity() {
 
         setContentView(buildLayout(title, body))
         startRinging()
+
+        autoTimeoutHandler.postDelayed(autoTimeoutRunnable, OFFER_TIMEOUT_MS)
+    }
+
+    private fun onOfferExpired() {
+        try { mediaPlayer?.stop(); mediaPlayer?.release() } catch (e: Exception) {}
+        mediaPlayer = null
+        try { vibrator?.cancel() } catch (e: Exception) {}
+        titleView?.text = "Essa corrida já foi para outro motoboy"
+        bodyView?.text = "Fique de olho na próxima oferta."
     }
 
     private fun buildLayout(title: String, body: String): LinearLayout {
@@ -58,18 +77,20 @@ class RideOfferActivity : AppCompatActivity() {
             setBackgroundColor(0xFF1E3A5F.toInt())
         }
 
-        val titleView = TextView(this).apply {
+        val titleTv = TextView(this).apply {
             text = title
             textSize = 26f
             setTextColor(0xFFFFFFFF.toInt())
             setPadding(0, 48, 0, 16)
         }
-        val bodyView = TextView(this).apply {
+        val bodyTv = TextView(this).apply {
             text = body
             textSize = 16f
             setTextColor(0xFFE0E0E0.toInt())
             setPadding(0, 0, 0, 96)
         }
+        titleView = titleTv
+        bodyView = bodyTv
 
         val acceptButton = Button(this).apply {
             text = "Ver corrida"
@@ -83,8 +104,8 @@ class RideOfferActivity : AppCompatActivity() {
             setOnClickListener { dismissRinging() }
         }
 
-        root.addView(titleView)
-        root.addView(bodyView)
+        root.addView(titleTv)
+        root.addView(bodyTv)
         root.addView(acceptButton)
         root.addView(spacer)
         root.addView(declineButton)
@@ -132,6 +153,7 @@ class RideOfferActivity : AppCompatActivity() {
     }
 
     private fun dismissRinging() {
+        autoTimeoutHandler.removeCallbacks(autoTimeoutRunnable)
         try { mediaPlayer?.stop(); mediaPlayer?.release() } catch (e: Exception) {}
         mediaPlayer = null
         try { vibrator?.cancel() } catch (e: Exception) {}
@@ -150,6 +172,7 @@ class RideOfferActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        autoTimeoutHandler.removeCallbacks(autoTimeoutRunnable)
         try { mediaPlayer?.release() } catch (e: Exception) {}
         try { vibrator?.cancel() } catch (e: Exception) {}
     }
