@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -40,18 +41,42 @@ class RideOfferMessagingService : FirebaseMessagingService() {
         val title = remoteMessage.data["title"]?.takeIf { it.isNotBlank() } ?: "Nova corrida disponível!"
         val body = remoteMessage.data["body"]?.takeIf { it.isNotBlank() } ?: "Toque para ver os detalhes"
 
-        val fullScreenIntent = Intent(this, RideOfferActivity::class.java).apply {
+        val answerIntent = Intent(this, RideOfferActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("orderId", orderId)
             putExtra("title", title)
             putExtra("body", body)
         }
-        val fullScreenPendingIntent = PendingIntent.getActivity(
-            this, 0, fullScreenIntent,
+        val answerPendingIntent = PendingIntent.getActivity(
+            this, 0, answerIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // O botão "Dispensar" também abre a RideOfferActivity (precisa ser
+        // uma Activity, não um BroadcastReceiver, para funcionar de forma
+        // confiável com o app fechado), só que com um sinal pra ela se
+        // fechar na hora, sem mostrar nada nem tocar som.
+        val declineIntent = Intent(this, RideOfferActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("action", "decline")
+        }
+        val declinePendingIntent = PendingIntent.getActivity(
+            this, 1, declineIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         ensureChannels()
+
+        // CallStyle é o recurso oficial do Android (desde a v12) para
+        // notificações de "chamada chegando" — diferente de uma notificação
+        // comum com prioridade alta, o sistema trata essa de forma especial
+        // (inclusive contornando otimizações de bateria mais agressivas de
+        // alguns fabricantes), o que é bem mais confiável para garantir que
+        // a tela realmente abra sozinha.
+        val caller = Person.Builder()
+            .setName(title)
+            .setImportant(true)
+            .build()
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
@@ -59,21 +84,14 @@ class RideOfferMessagingService : FirebaseMessagingService() {
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setFullScreenIntent(fullScreenPendingIntent, true)
-            .setContentIntent(fullScreenPendingIntent)
-            .setAutoCancel(true)
+            .setFullScreenIntent(answerPendingIntent, true)
+            .setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, declinePendingIntent, answerPendingIntent))
+            .setOngoing(true)
+            .setAutoCancel(false)
             .build()
 
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(RIDE_OFFER_NOTIFICATION_ID, notification)
-
-        // Importante: NÃO chamamos startActivity() diretamente aqui. A
-        // partir do Android 10, o sistema bloqueia apps de abrir uma tela
-        // sozinhos estando em segundo plano — o único jeito permitido é
-        // através do setFullScreenIntent() da notificação acima (que exige
-        // a permissão USE_FULL_SCREEN_INTENT, já declarada no Manifest).
-        // Uma segunda tentativa manual aqui só teria o efeito de ser
-        // bloqueada pelo sistema e possivelmente atrapalhar a primeira.
     }
 
     private fun showSimpleNotification(remoteMessage: RemoteMessage) {
