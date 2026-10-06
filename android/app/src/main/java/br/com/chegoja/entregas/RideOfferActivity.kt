@@ -139,8 +139,10 @@ class RideOfferActivity : AppCompatActivity() {
     private fun startRinging() {
         // Tenta vários sons, do preferido para o último recurso. Se um
         // falhar, o próximo é tentado, e o erro aparece no log.
-        val candidates = listOfNotNull(
-            RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE),
+                   val appSoundId = resources.getIdentifier("toque_corrida", "raw", packageName)
+           val candidates = listOfNotNull(
+               if (appSoundId != 0) android.net.Uri.parse("android.resource://$packageName/$appSoundId") else null,
+               RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE),
             RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
             RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
             RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
