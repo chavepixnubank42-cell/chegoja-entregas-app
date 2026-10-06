@@ -2,10 +2,12 @@ package br.com.chegoja.entregas;
 
 import android.app.AlertDialog;
 import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.provider.Settings;
 
 import com.getcapacitor.BridgeActivity;
@@ -15,6 +17,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         checkFullScreenIntentPermission();
+        checkBatteryOptimization();
     }
 
     // A partir do Android 14, a permissão de abrir uma tela cheia sozinho
@@ -42,6 +45,32 @@ public class MainActivity extends BridgeActivity {
                     .setNegativeButton("Agora não", null)
                     .show();
             }
+        }
+    }
+
+    // Em muitos aparelhos, o Android "congela" apps em segundo plano para
+    // economizar bateria — isso pode impedir a tela de corrida nova de
+    // abrir sozinha, mesmo com a permissão de tela cheia ativada. Pedimos
+    // aqui pra colocar o ChegouJá na lista de apps sem restrição de
+    // bateria (o usuário ainda pode negar, o app continua funcionando
+    // normalmente, só sem essa garantia extra de confiabilidade).
+    private void checkBatteryOptimization() {
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+            new AlertDialog.Builder(this)
+                .setTitle("Mais uma permissão importante")
+                .setMessage("Para as corridas novas sempre tocarem, mesmo com o app fechado, o ChegouJá precisa ficar fora da otimização de bateria do seu celular.\n\nNa tela que vai abrir, procure \"Sem restrições\" ou \"Permitir\" para o ChegouJá.")
+                .setPositiveButton("Abrir configurações", (dialog, which) -> {
+                    try {
+                        Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                        intent.setData(Uri.parse("package:" + getPackageName()));
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        // Alguns aparelhos/fabricantes não têm essa tela específica — sem problema, só ignora.
+                    }
+                })
+                .setNegativeButton("Agora não", null)
+                .show();
         }
     }
 }
