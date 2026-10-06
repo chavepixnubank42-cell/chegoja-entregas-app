@@ -37,7 +37,7 @@
         <service
             android:name=".RideOfferMessagingService"
             android:exported="false">
-            <intent-filter>
+            <intent-filter android:priority="100">
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
