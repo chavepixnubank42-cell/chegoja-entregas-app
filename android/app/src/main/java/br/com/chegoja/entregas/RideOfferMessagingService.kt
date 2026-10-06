@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import androidx.core.app.Person
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -67,17 +66,14 @@ class RideOfferMessagingService : FirebaseMessagingService() {
 
         ensureChannels()
 
-        // CallStyle é o recurso oficial do Android (desde a v12) para
-        // notificações de "chamada chegando" — diferente de uma notificação
-        // comum com prioridade alta, o sistema trata essa de forma especial
-        // (inclusive contornando otimizações de bateria mais agressivas de
-        // alguns fabricantes), o que é bem mais confiável para garantir que
-        // a tela realmente abra sozinha.
-        val caller = Person.Builder()
-            .setName(title)
-            .setImportant(true)
-            .build()
-
+        // Nota: tentamos usar o CallStyle do Android aqui (o recurso que
+        // apps de chamada usam), que é mais confiável para abrir a tela
+        // sozinho — só que ele também traz a interface NATIVA de chamada
+        // do próprio sistema ("Atender"/"Recusar" genéricos), sem a cara do
+        // app. Voltamos para uma notificação customizada (nossa tela
+        // própria, com "Ver corrida"/"Dispensar"), e para a confiabilidade
+        // de abrir sozinho, o usuário também precisa desativar a
+        // otimização de bateria para o app (ver MainActivity.java).
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle(title)
@@ -85,7 +81,9 @@ class RideOfferMessagingService : FirebaseMessagingService() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setFullScreenIntent(answerPendingIntent, true)
-            .setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, declinePendingIntent, answerPendingIntent))
+            .addAction(0, "Ver corrida", answerPendingIntent)
+            .addAction(0, "Dispensar", declinePendingIntent)
+            .setContentIntent(answerPendingIntent)
             .setOngoing(true)
             .setAutoCancel(false)
             .build()
