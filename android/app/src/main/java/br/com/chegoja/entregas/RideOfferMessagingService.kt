@@ -66,20 +66,17 @@ class RideOfferMessagingService : FirebaseMessagingService() {
 
         ensureChannels()
 
-        // Nota: tentamos usar o CallStyle do Android aqui (o recurso que
-        // apps de chamada usam), que é mais confiável para abrir a tela
-        // sozinho — só que ele também traz a interface NATIVA de chamada
-        // do próprio sistema ("Atender"/"Recusar" genéricos), sem a cara do
-        // app. Voltamos para uma notificação customizada (nossa tela
-        // própria, com "Ver corrida"/"Dispensar"), e para a confiabilidade
-        // de abrir sozinho, o usuário também precisa desativar a
-        // otimização de bateria para o app (ver MainActivity.java).
+        // A notificação é SILENCIOSA de propósito: quem toca o som (em
+        // loop) e vibra é a RideOfferActivity. Se a notificação também
+        // tocasse, ficariam dois sons ao mesmo tempo.
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setSound(null)
+            .setOnlyAlertOnce(true)
             .setFullScreenIntent(answerPendingIntent, true)
             .addAction(0, "Ver corrida", answerPendingIntent)
             .addAction(0, "Dispensar", declinePendingIntent)
@@ -113,11 +110,16 @@ class RideOfferMessagingService : FirebaseMessagingService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+            // Apaga o canal antigo (que tinha som) para não sobrar
+            // configuração velha no aparelho.
+            nm.deleteNotificationChannel(OLD_CHANNEL_ID)
+
             val rideChannel = NotificationChannel(
                 CHANNEL_ID, "Corridas novas", NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Avisa quando uma corrida nova é oferecida a você"
-                enableVibration(true)
+                setSound(null, null)
+                enableVibration(false)
                 setBypassDnd(true)
             }
             nm.createNotificationChannel(rideChannel)
@@ -130,7 +132,8 @@ class RideOfferMessagingService : FirebaseMessagingService() {
     }
 
     companion object {
-        const val CHANNEL_ID = "ride-offer"
+        const val CHANNEL_ID = "ride-offer-v2"
+        const val OLD_CHANNEL_ID = "ride-offer"
         const val DEFAULT_CHANNEL_ID = "default"
         const val RIDE_OFFER_NOTIFICATION_ID = 1001
         const val DEFAULT_NOTIFICATION_ID = 1002
