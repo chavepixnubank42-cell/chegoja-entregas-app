@@ -25,13 +25,14 @@
         </activity>
 
         <!-- Tela cheia que toca como uma ligação quando chega corrida nova
-             (ver RideOfferMessagingService) -->
+             (ver RideOfferMessagingService). Precisa de um tema AppCompat,
+             senão a tela quebra ao abrir. -->
         <activity
             android:name=".RideOfferActivity"
             android:exported="false"
             android:excludeFromRecents="true"
             android:launchMode="singleTask"
-            android:theme="@style/AppTheme.NoActionBarLaunch" />
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
 
         <!-- Recebe as notificações do Firebase, mesmo com o app fechado -->
         <service
