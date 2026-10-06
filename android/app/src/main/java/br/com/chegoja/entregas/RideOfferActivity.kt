@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
@@ -37,10 +38,13 @@ class RideOfferActivity : AppCompatActivity() {
     // no server.js) — depois disso não faz mais sentido continuar tocando.
     private val OFFER_TIMEOUT_MS = 30_000L
 
+    private val TAG = "ChegojaRing"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG, "RideOfferActivity.onCreate")
 
-        // Veio do botão "Dispensar" da notificação (CallStyle) — só limpa
+        // Veio do botão "Dispensar" da notificação — só limpa
         // tudo e fecha, sem mostrar nada nem tocar som.
         if (intent.getStringExtra("action") == "decline") {
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -71,9 +75,14 @@ class RideOfferActivity : AppCompatActivity() {
         autoTimeoutHandler.postDelayed(autoTimeoutRunnable, OFFER_TIMEOUT_MS)
     }
 
-    private fun onOfferExpired() {
-        try { mediaPlayer?.stop(); mediaPlayer?.release() } catch (e: Exception) {}
+    private fun stopSound() {
+        try { mediaPlayer?.stop() } catch (e: Exception) {}
+        try { mediaPlayer?.release() } catch (e: Exception) {}
         mediaPlayer = null
+    }
+
+    private fun onOfferExpired() {
+        stopSound()
         try { vibrator?.cancel() } catch (e: Exception) {}
         titleView?.text = "O tempo para aceitar essa corrida acabou"
         bodyView?.text = "Abra o app para ver se ela ainda está disponível."
@@ -82,7 +91,7 @@ class RideOfferActivity : AppCompatActivity() {
         // Deixa a mensagem visível por alguns segundos antes de fechar
         // sozinha, em vez de ficar presa na tela esperando a pessoa tocar
         // em algo.
-        autoTimeoutHandler.postDelayed({ if(!isFinishing) finish() }, 4000)
+        autoTimeoutHandler.postDelayed({ if (!isFinishing) finish() }, 4000)
     }
 
     private fun buildLayout(title: String, body: String): LinearLayout {
@@ -128,25 +137,52 @@ class RideOfferActivity : AppCompatActivity() {
     }
 
     private fun startRinging() {
-        try {
-            val ringtoneUri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        // Tenta vários sons, do preferido para o último recurso. Se um
+        // falhar, o próximo é tentado, e o erro aparece no log.
+        val candidates = listOfNotNull(
+            RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE),
+            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
+            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
+            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        )
 
-            mediaPlayer = MediaPlayer().apply {
-                setAudioAttributes(
+        for (uri in candidates) {
+            var player: MediaPlayer? = null
+            try {
+                Log.d(TAG, "Tentando tocar: $uri")
+                player = MediaPlayer()
+                player.setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
                 )
-                setDataSource(this@RideOfferActivity, ringtoneUri)
-                isLooping = true
-                prepare()
-                start()
+                player.setDataSource(this, uri)
+                player.isLooping = true
+                // Reforço: se por algum motivo o aparelho ignorar o
+                // loop e o som terminar, toca de novo.
+                player.setOnCompletionListener { mp ->
+                    try {
+                        Log.d(TAG, "Som terminou, reiniciando")
+                        mp.seekTo(0)
+                        mp.start()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Falha ao reiniciar o som", e)
+                    }
+                }
+                player.prepare()
+                player.start()
+                mediaPlayer = player
+                Log.d(TAG, "Tocando em loop: $uri")
+                break
+            } catch (e: Exception) {
+                Log.e(TAG, "Falha ao tocar $uri", e)
+                try { player?.release() } catch (e2: Exception) {}
             }
-        } catch (e: Exception) {
-            // Se o som falhar por qualquer motivo, a vibração abaixo
-            // ainda avisa a pessoa — não é crítico para o app funcionar.
+        }
+
+        if (mediaPlayer == null) {
+            Log.e(TAG, "Nenhum som conseguiu tocar — só vibração")
         }
 
         try {
@@ -164,13 +200,14 @@ class RideOfferActivity : AppCompatActivity() {
                 @Suppress("DEPRECATION")
                 vibrator?.vibrate(pattern, 0)
             }
-        } catch (e: Exception) { }
+        } catch (e: Exception) {
+            Log.e(TAG, "Falha na vibração", e)
+        }
     }
 
     private fun dismissRinging() {
         autoTimeoutHandler.removeCallbacks(autoTimeoutRunnable)
-        try { mediaPlayer?.stop(); mediaPlayer?.release() } catch (e: Exception) {}
-        mediaPlayer = null
+        stopSound()
         try { vibrator?.cancel() } catch (e: Exception) {}
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(RideOfferMessagingService.RIDE_OFFER_NOTIFICATION_ID)
@@ -188,7 +225,7 @@ class RideOfferActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         autoTimeoutHandler.removeCallbacks(autoTimeoutRunnable)
-        try { mediaPlayer?.release() } catch (e: Exception) {}
+        stopSound()
         try { vibrator?.cancel() } catch (e: Exception) {}
     }
 }
