@@ -40,6 +40,15 @@ class RideOfferActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Veio do botão "Dispensar" da notificação (CallStyle) — só limpa
+        // tudo e fecha, sem mostrar nada nem tocar som.
+        if (intent.getStringExtra("action") == "decline") {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.cancel(RideOfferMessagingService.RIDE_OFFER_NOTIFICATION_ID)
+            finish()
+            return
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
