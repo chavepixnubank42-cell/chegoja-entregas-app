@@ -69,8 +69,10 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    private void cancelRideNotification() {
+        private void cancelRideNotification() {
         try {
+            // Para o serviço que toca o som (a notificação some junto).
+            stopService(new Intent(this, RideRingService.class));
             NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
             if (nm != null) nm.cancel(RIDE_OFFER_NOTIFICATION_ID);
         } catch (Exception e) {
