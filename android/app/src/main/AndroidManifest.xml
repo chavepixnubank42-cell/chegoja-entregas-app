@@ -24,9 +24,7 @@
 
         </activity>
 
-        <!-- Tela cheia que toca como uma ligação quando chega corrida nova
-             (ver RideOfferMessagingService). Precisa de um tema AppCompat,
-             senão a tela quebra ao abrir. -->
+        <!-- Não é mais usada para a corrida nova, mantida só por compatibilidade -->
         <activity
             android:name=".RideOfferActivity"
             android:exported="false"
@@ -42,6 +40,12 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Toca o som de corrida nova em loop, mesmo com o app fechado -->
+        <service
+            android:name=".RideRingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -67,6 +71,9 @@
          app minimizado (o Android exige declarar isso a partir da v9/10) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <!-- Necessária para o serviço que toca o som de corrida nova -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <!-- Necessária para mostrar a notificação persistente do serviço de
          localização em segundo plano (obrigatória a partir do Android 13) -->
