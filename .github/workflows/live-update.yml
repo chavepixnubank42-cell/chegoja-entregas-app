@@ -1,0 +1,62 @@
+name: Atualização ao vivo da tela (Capgo)
+
+# Roda sozinho quando você muda qualquer coisa dentro da pasta "www" (a tela do app),
+# ou quando você clicar em "Run workflow" na aba Actions.
+# Envia a nova versão da tela para o Capgo; o app do motoboy baixa em segundo plano
+# e passa a usá-la na próxima vez que for aberto. Não precisa de .apk novo.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'www/**'
+  workflow_dispatch:
+
+# Se você enviar duas mudanças seguidas, só a mais nova vale.
+concurrency:
+  group: live-update
+  cancel-in-progress: true
+
+jobs:
+  live-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependências do projeto
+        run: npm install
+
+      - name: Conferir a chave do Capgo
+        env:
+          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
+        run: |
+          if [ -z "$CAPGO_TOKEN" ]; then
+            echo "ERRO: o secret CAPGO_TOKEN ainda não foi criado no GitHub."
+            echo "Veja: Settings > Secrets and variables > Actions > New repository secret."
+            exit 1
+          fi
+
+      # Só faz efeito na primeira vez; nas outras o Capgo responde que já existe
+      # (por isso o "|| true"). Se der erro aqui na primeira vez, crie o app e o
+      # canal "production" pelo site do Capgo.
+      - name: Criar o app e o canal no Capgo (primeira vez)
+        env:
+          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
+        run: |
+          npx @capgo/cli@latest app add br.com.chegoja.entregas --apikey "$CAPGO_TOKEN" || true
+          npx @capgo/cli@latest channel add production br.com.chegoja.entregas --default --apikey "$CAPGO_TOKEN" || true
+
+      - name: Enviar a nova versão da tela
+        env:
+          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
+        run: |
+          npx @capgo/cli@latest bundle upload br.com.chegoja.entregas \
+            --apikey "$CAPGO_TOKEN" \
+            --channel production \
+            --path ./www \
+            --bundle "1.0.${{ github.run_number }}"
