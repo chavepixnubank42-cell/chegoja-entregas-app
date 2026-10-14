@@ -8,5 +8,10 @@
   "android": {
     "allowMixedContent": false,
     "useLegacyBridge": true
+  },
+  "plugins": {
+    "CapacitorUpdater": {
+      "autoUpdate": true
+    }
   }
 }
