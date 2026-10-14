@@ -1,10 +1,18 @@
 name: Build Android APK
 
-# Roda toda vez que você enviar código para o branch "main", ou quando
-# você clicar manualmente em "Run workflow" na aba Actions do GitHub.
+# Agora o .apk só é gerado quando muda algo DENTRO do app (código Android, plugins,
+# configuração) ou quando você clicar manualmente em "Run workflow" na aba Actions.
+# Mudanças só na tela (pasta www) vão pelo outro fluxo, "Atualização ao vivo da tela",
+# e chegam no celular sem .apk novo.
 on:
   push:
     branches: [main]
+    paths:
+      - 'android/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.json'
+      - '.github/workflows/build-android.yml'
   workflow_dispatch:
 
 jobs:
@@ -39,11 +47,36 @@ jobs:
       - name: Dar permissão de execução ao gradlew
         run: chmod +x ./android/gradlew
 
+      # Sem isto, cada build sairia assinado com uma chave nova e diferente,
+      # e o Android não deixaria o app atualizar por cima do anterior
+      # (era preciso desinstalar). Com a chave fixa guardada no GitHub
+      # (Settings > Secrets and variables > Actions > DEBUG_KEYSTORE_BASE64),
+      # todo APK sai com a mesma assinatura.
+      - name: Usar a chave de assinatura fixa
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$DEBUG_KEYSTORE_BASE64" ]; then
+            echo "ERRO: o secret DEBUG_KEYSTORE_BASE64 ainda não foi criado no GitHub."
+            echo "Veja: Settings > Secrets and variables > Actions > New repository secret."
+            exit 1
+          fi
+          mkdir -p ~/.android
+          echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+
       - name: Compilar o APK (modo debug, para testes)
         run: cd android && ./gradlew assembleDebug --stacktrace
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+      # Só informativo: mostra a "impressão digital" da assinatura do APK.
+      # Ela deve ser IGUAL em todos os builds; se mudar, o app não atualiza por cima.
+      - name: Mostrar a assinatura do APK
+        continue-on-error: true
+        run: |
+          APKSIGNER=$(ls -d /usr/local/lib/android/sdk/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | grep -i "SHA-256"
 
       - name: Disponibilizar o APK para download
         uses: actions/upload-artifact@v4
